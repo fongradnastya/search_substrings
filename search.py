@@ -211,7 +211,7 @@ def search(string, sub_string, case_sensitivity=False, method='first',
             found[item] = []
     else:
         found[sub_string] = []
-    counter = 0
+    items = []
     for idx, symbol in enumerate(string):
         current_state = current_state.transitions.get(
             symbol, zero_state.transitions.get(symbol, zero_state))
@@ -219,30 +219,30 @@ def search(string, sub_string, case_sensitivity=False, method='first',
         while state is not zero_state:
             if state.success:
                 keyword = state.matched_keyword
-                counter += 1
-                if not (count and counter > count):
-                    found[keyword].append(idx + 1 - len(keyword))
+                idn = idx + 1 - len(keyword)
+                items.append((keyword, idn))
             state = state.longest_strict_suffix
-    if len(found) == 1:
-        if found[sub_string]:
-            if method == 'last':
-                found[sub_string] = found[sub_string][::-1]
-            if count and len(found[sub_string]) > count:
-                return tuple(found[sub_string][:count])
-            return tuple(found[sub_string])
-        return None
+    if items:
+        if method == 'last':
+            items = items[::-1]
+        if count and len(items) > count:
+            items = items[:count]
     else:
-        is_empty = True
-        for key, item in found.items():
-            if item:
-                if method == 'last':
-                    item = found[key][::-1]
-                if count and len(found[key]) > count:
-                    item = item[:count]
-                found[key] = tuple(item)
-                is_empty = False
-            else:
+        return None
+    if not isinstance(sub_string, tuple):
+        t = []
+        for i in items:
+            t.append(i[1])
+        return tuple(t)
+    else:
+        found = dict()
+        for str in sub_string:
+            found[str] = []
+        for i in items:
+            found[i[0]].append(i[1])
+        for key, value in found.items():
+            if not value:
                 found[key] = None
-        if is_empty:
-            return None
+            else:
+                found[key] = tuple(value)
         return found
