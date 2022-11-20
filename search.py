@@ -1,14 +1,4 @@
-'''
-Ahocorasick implementation entirely written in python.
-Supports unicode.
-
-Quite optimized, the code may not be as beautiful as you like,
-since inlining and so on was necessary
-
-Created on Jan 5, 2016
-
-@author: Frederik Petersen (fp@abusix.com)
-'''
+import logging
 
 from builtins import object
 
@@ -36,12 +26,8 @@ class State(object):
 
 class KeywordTree(object):
 
-    def __init__(self, case_insensitive=False):
+    def __init__(self):
         '''
-        @param case_insensitive: If true, case will be ignored when searching.
-                                 Setting this to true will have a positive
-                                 impact on performance.
-                                 Defaults to false.
         @param over_allocation: Determines how big initial transition arrays
                                 are and how much space is allocated in addition
                                 to what is essential when array needs to be
@@ -51,7 +37,6 @@ class KeywordTree(object):
         self._zero_state = State(0)
         self._counter = 1
         self._finalized = False
-        self._case_insensitive = case_insensitive
 
     def add(self, keyword):
         '''
@@ -63,8 +48,6 @@ class KeywordTree(object):
             raise ValueError('KeywordTree has been finalized.' +
                              ' No more keyword additions allowed')
         original_keyword = keyword
-        if self._case_insensitive:
-            keyword = keyword.lower()
         if len(keyword) <= 0:
             return
         current_state = self._zero_state
@@ -151,14 +134,12 @@ class KeywordTree(object):
                     todo_list.append(child)
 
         return {
-            'case_insensitive': self._case_insensitive,
             'finalized': self._finalized,
             'counter': self._counter,
             'states': state_list
         }
 
     def __setstate__(self, state):
-        self._case_insensitive = state['case_insensitive']
         self._counter = state['counter']
         self._finalized = state['finalized']
         states = [None] * len(state['states'])
