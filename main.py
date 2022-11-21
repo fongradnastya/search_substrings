@@ -1,41 +1,52 @@
 import argparse
 import os
-from colorama import init, Back, Style
+from colorama import init, Back
 from search import search
+from typing import Union
 
 
-def main():
-    command = ""
-    string = None
-    keywords = None
-    while command != "5":
-        print_menu()
-        command = input("Your command: ")
-        if command == "1":
-            string = input_text()
-            print(string)
-        elif command == "2":
-            keywords = input_keywords()
-            print(keywords)
-        elif command == "3" or command == "4":
-            string = get_string(string)
-            is_correct = False
-            if string:
-                keywords = get_keys(keywords)
-                if keywords:
-                    if command == "3":
-                        answer = search(string, keywords)
-                    else:
-                        answer = advanced_search(string, keywords)
-                    print_text(string, answer, keywords)
-                    is_correct = True
-            if not is_correct:
-                print("Impossible to search data")
-        else:
-            print("Wrong command")
+def main() -> None:
+    """
+    Точка входа в приложение
+    :return: None
+    """
+    value = started_parser()
+    if not value:
+        command = ""
+        string = None
+        keywords = None
+        while command != "5":
+            print_menu()
+            command = input("Your command: ")
+            if command == "1":
+                string = input_text()
+                print(string)
+            elif command == "2":
+                keywords = input_keywords()
+                print(keywords)
+            elif command == "3" or command == "4":
+                string = get_string(string)
+                is_correct = False
+                if string:
+                    keywords = get_keys(keywords)
+                    if keywords:
+                        if command == "3":
+                            answer = search(string, keywords)
+                        else:
+                            answer = advanced_search(string, keywords)
+                        print_text(string, answer, keywords)
+                        is_correct = True
+                if not is_correct:
+                    print("Impossible to search data")
+            else:
+                print("Wrong command")
 
 
-def started_parser():
+def started_parser() -> int:
+    """
+    Инициализация парсинга аргументов командной строки
+    :return: 0 - если нет аргументов, 1 - если ошибка, 2 - если корректно
+    """
     parser = argparse.ArgumentParser(description="collection of parameters")
     parser.add_argument("--str", type=str, help="searching string")
     parser.add_argument("--file", type=str, help="file")
@@ -44,14 +55,19 @@ def started_parser():
                         default=True)
     parser.add_argument("--method", type=str, help="searching method",
                         default="first")
-    parser.add_argument("--counter", type=int, help="number of occurrences",
+    parser.add_argument("--cnt", type=int, help="number of occurrences",
                         default=None)
     args = parser.parse_args()
     parse = parse_arguments(args)
     return parse
 
 
-def parse_arguments(args):
+def parse_arguments(args) -> int:
+    """
+    Получение и проверка аргументов командной строки
+    :param args: аргументы командной строки
+    :return: 0 - если нет аргументов, 1 - если ошибка, 2 - если корректно
+    """
     args_b = bool(args.str) + bool(args.file) + bool(args.substr)
     if not args_b:
         return 0
@@ -59,25 +75,43 @@ def parse_arguments(args):
         print("Please, enter strings (--str) or a file name (--file)")
         print("Nowhere to search in")
         return 1
+    elif args.file:
+        if os.path.exists(args.file):
+            read_from_file(args.file)
+        else:
+            print("This filename is incorrect")
     if not args.substr:
         print("Please, enter keywords (--substr)")
         print("Nothing to search")
         return 1
     else:
+        case_sensitivity = args.cases if args.cases in (True, False) else True
+        method = args.method if args.method in ("first", "last") else "first"
+        count = args.cnt if args.cnt > 0 else None
+        answer = search(args.str, args.substr, case_sensitivity, method, count)
+        print_text(args.str, answer, args.substr)
         return 2
 
 
-def read_from_file():
-    file_name = None
+def read_from_file(file_name=None) -> str:
+    """
+    Считывание строк из файла
+    :param file_name: имя файла для открытия
+    :return: считанная строка или None
+    """
     while not file_name:
         file_name = input("Please, enter a file name (with extension): ")
         if not os.path.exists(file_name):
             print("This filename is incorrect. Please, try again")
             file_name = None
     string = ""
+    counter = 0
     with open(file_name, "r", encoding='utf-8') as file:
         for line in file:
             string += line
+            counter += 1
+            if counter > 10:
+                break
     if (not string) or (string == " "):
         print("Read string is empty")
         string = None
@@ -86,7 +120,12 @@ def read_from_file():
     return string
 
 
-def get_string(string):
+def get_string(string: str) -> str:
+    """
+    Считывание строки, если она ещё не была добавлена
+    :param string: строка для поиска
+    :return: считанная строка
+    """
     if not string:
         print("Search string has not been added yet")
         answer = input("Do you want to add it now, (yes/no): ")
@@ -99,7 +138,12 @@ def get_string(string):
     return string
 
 
-def get_keys(keys):
+def get_keys(keys: Union[tuple, str, None]) -> Union[tuple, str, None]:
+    """
+    Считывание ключевых слов, если они ещё не были добавлены
+    :param keys: ключевые слова
+    :return: считанные ключевые слова
+    """
     if not keys:
         print("Key words have not been added yet")
         answer = input("Do you want to add it now, (yes/no): ")
@@ -112,7 +156,11 @@ def get_keys(keys):
     return keys
 
 
-def print_menu():
+def print_menu() -> None:
+    """
+    Вывод в консоль главного меню приложения
+    :return: None
+    """
     print("------------------------MENU------------------------")
     print("1 - input a text")
     print("2 - input keywords")
@@ -122,7 +170,11 @@ def print_menu():
     print("----------------------------------------------------")
 
 
-def input_text():
+def input_text() -> Union[str, None]:
+    """
+    Считывание строк для поиска
+    :return: считанные строки
+    """
     print("-----------------------INPUT-----------------------")
     print("1 - input from file")
     print("2 - input from console")
@@ -145,7 +197,11 @@ def input_text():
         print("Wrong command")
 
 
-def input_keywords():
+def input_keywords() -> Union[tuple, str, None]:
+    """
+    Считывание списка ключевых слов
+    :return: список ключевых слов
+    """
     keywords = []
     keyword = ""
     while keyword != "quit":
@@ -163,7 +219,14 @@ def input_keywords():
     return tuple(keywords)
 
 
-def advanced_search(string, keywords):
+def advanced_search(string: str, keywords: Union[tuple, str, None]) -> \
+        Union[tuple, dict, None]:
+    """
+    Поиск подстрок с расширенным набором параметров
+    :param string: строка для поиска
+    :param keywords: искомые ключевые слова
+    :return: результат поиска
+    """
     case_sensitivity = input("Case sensitivity (True/False): ")
     while case_sensitivity not in ("True", "False"):
         print("Wrong value, please, try again")
@@ -190,8 +253,17 @@ def advanced_search(string, keywords):
     return search(string, keywords, case_sensitivity, method, count)
 
 
-def print_text(string, found, key):
+def print_text(string: str, found: Union[tuple, dict, None],
+               key: Union[tuple, str, None]) -> None:
+    """
+    Цветной вывод найденных подстрок в консоль
+    :param string: строка для поиска
+    :param found: индексы найденных ключевых слов
+    :param key: ключевые слова
+    :return: None
+    """
     if not found:
+        "There are no substrings founded here"
         print(string)
     else:
         if isinstance(found, tuple):
@@ -225,7 +297,13 @@ def print_text(string, found, key):
         print(Back.RESET)
 
 
-def create_one_key(found, key):
+def create_one_key(found: Union[tuple, None], key: str) -> list:
+    """
+    Создание массива индексов для одного ключа
+    :param found: индексы найденных ключевых слов
+    :param key: название искомого ключа
+    :return: массива индексов
+    """
     ids = []
     for i in range(len(found)):
         ids.append([])
@@ -234,16 +312,23 @@ def create_one_key(found, key):
     return ids
 
 
-def create_many_keys(found):
+def create_many_keys(found: Union[dict, None]) -> list:
+    """
+    Создание массива индексов для нескольких ключей
+    :param found: индексы найденных ключевых слов
+    :return: массива индексов
+    """
     ids = []
     curr_id = -1
     for key, value in found.items():
-        for i in range(len(value)):
-            ids.append([])
-            curr_id += 1
-            for j in range(len(key)):
-                ids[curr_id].append(value[i] + j)
+        if value:
+            for i in range(len(value)):
+                ids.append([])
+                curr_id += 1
+                for j in range(len(key)):
+                    ids[curr_id].append(value[i] + j)
     return sorted(ids)
 
 
-main()
+if __name__ == "__main__":
+    main()
