@@ -1,4 +1,5 @@
 import argparse
+import os
 from colorama import init, Back, Style
 from search import search
 
@@ -13,6 +14,7 @@ def main():
         command = input("Your command: ")
         if command == "1":
             string = input_text()
+            print(string)
         elif command == "2":
             keywords = input_keywords()
             print(keywords)
@@ -34,14 +36,23 @@ def main():
             print("Wrong command")
 
 
-def check_status(string, keywords):
-    string = get_string(string)
-    if not string:
-        return False
-    keywords = get_keys(keywords)
-    if not keywords:
-        return False
-    return True
+def read_from_file():
+    file_name = None
+    while not file_name:
+        file_name = input("Please, enter a file name (with extension): ")
+        if not os.path.exists(file_name):
+            print("This filename is incorrect. Please, try again")
+            file_name = None
+    string = ""
+    with open(file_name, "r", encoding='utf-8') as file:
+        for line in file:
+            string += line
+    if (not string) or (string == " "):
+        print("Read string is empty")
+        string = None
+    else:
+        string = ' '.join(string.split("\n"))
+    return string
 
 
 def get_string(string):
@@ -73,7 +84,7 @@ def get_keys(keys):
 def print_menu():
     print("------------------------MENU------------------------")
     print("1 - input a text")
-    print("2 - add keywords")
+    print("2 - input keywords")
     print("3 - default search keywords in the text")
     print("4 - advanced search keywords in the text")
     print("5 - exit")
@@ -88,7 +99,10 @@ def input_text():
     print("---------------------------------------------------")
     command = input("Your command: ")
     strings = ""
-    if command == "2":
+    if command == "1":
+        string = read_from_file()
+        return string
+    elif command == "2":
         for i in range(10):
             string = input("Enter string or 'quit': ")
             if string == "quit":
@@ -146,42 +160,59 @@ def advanced_search(string, keywords):
 
 
 def print_text(string, found, key):
-    init()
-    colors = (
-        Back.BLACK,
-        Back.RED,
-        Back.BLUE,
-        Back.CYAN,
-        Back.GREEN,
-        Back.MAGENTA,
-        Back.YELLOW,
-    )
-    counter = 0
-    for i, char in enumerate(string):
-        if i in found:
-            print(colors[counter] + char, end="")
+    if not found:
+        print(string)
+    else:
+        if isinstance(found, tuple):
+            found = create_one_key(found, key)
         else:
-            for f in found:
-                if (i > f) and (i < f + len(key)):
-                    print(colors[counter] + char, end="")
-                    break
-                elif i == f + len(key):
-                    counter += 1
-                    print(Back.RESET + char, end="")
-                    break
+            found = create_many_keys(found)
+        init()
+        color_id = 0
+        colors = (
+            Back.BLACK,
+            Back.RED,
+            Back.BLUE,
+            Back.CYAN,
+            Back.GREEN,
+            Back.MAGENTA,
+            Back.YELLOW,
+        )
+        counter = 0
+        for i, char in enumerate(string):
+            if i in found[counter]:
+                print(colors[color_id] + char, end="")
+            elif counter + 1 < len(found) and i in found[counter + 1]:
+                counter += 1
+                if color_id + 1 == len(colors):
+                    color_id = 0
                 else:
-                    print(Back.RESET + char, end="")
-        if counter >= len(colors):
-            counter = 0
-    print(Back.RESET)
+                    color_id += 1
+                print(colors[color_id] + char, end="")
+            else:
+                print(Back.RESET + char, end="")
+        print(Back.RESET)
 
 
-def print_one_key():
-    pass
+def create_one_key(found, key):
+    ids = []
+    for i in range(len(found)):
+        ids.append([])
+        for j in range(len(key)):
+            ids[i].append(found[i] + j)
+    return ids
 
 
-def print_many_keys():
-    pass
+def create_many_keys(found):
+    ids = []
+    curr_id = -1
+    for key, value in found.items():
+        for i in range(len(value)):
+            ids.append([])
+            curr_id += 1
+            for j in range(len(key)):
+                ids[curr_id].append(value[i] + j)
+    return sorted(ids)
 
 
 main()
