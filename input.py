@@ -8,7 +8,6 @@ def main():
     command = ""
     string = None
     keywords = None
-    parser = argparse.ArgumentParser(description="collection of parameters")
     while command != "5":
         print_menu()
         command = input("Your command: ")
@@ -34,6 +33,38 @@ def main():
                 print("Impossible to search data")
         else:
             print("Wrong command")
+
+
+def started_parser():
+    parser = argparse.ArgumentParser(description="collection of parameters")
+    parser.add_argument("--str", type=str, help="searching string")
+    parser.add_argument("--file", type=str, help="file")
+    parser.add_argument("--substr", type=str, help="substrings for searching")
+    parser.add_argument("--cases", type=bool, help="case sensitive",
+                        default=True)
+    parser.add_argument("--method", type=str, help="searching method",
+                        default="first")
+    parser.add_argument("--counter", type=int, help="number of occurrences",
+                        default=None)
+    args = parser.parse_args()
+    parse = parse_arguments(args)
+    return parse
+
+
+def parse_arguments(args):
+    args_b = bool(args.str) + bool(args.file) + bool(args.substr)
+    if not args_b:
+        return 0
+    if not (args.str or args.file):
+        print("Please, enter strings (--str) or a file name (--file)")
+        print("Nowhere to search in")
+        return 1
+    if not args.substr:
+        print("Please, enter keywords (--substr)")
+        print("Nothing to search")
+        return 1
+    else:
+        return 2
 
 
 def read_from_file():

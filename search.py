@@ -1,4 +1,4 @@
-import logging
+import time
 
 from builtins import object
 
@@ -166,6 +166,19 @@ class KeywordTree(object):
         self._zero_state = states[0]
 
 
+def logger(func):
+    def wrapper(*args, **kwargs):
+        start_time = time.time()
+        res = func(*args, **kwargs)
+        end_time = time.time()
+        run_time = end_time - start_time
+        print(f"Function {func.__name__} completed in {run_time:.9f} seconds.")
+        print(f"Arguments: {args}, {kwargs}.")
+        return res
+    return wrapper
+
+
+@logger
 def search(string, sub_string, case_sensitivity=False, method='first',
            count=None):
     tree = KeywordTree()
