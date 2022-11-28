@@ -1,3 +1,4 @@
+import time
 from collections import deque
 
 
@@ -46,31 +47,31 @@ class Tree:
         item = TreeItem(value, next_states, fail_state, output)
         self.items.append(item)
 
-    def __len__(self):
-        return len(self.items)
-
     def get_item(self, item_id):
         return self.items[item_id]
 
     def add_keywords(self, keywords):
         """ add all keywords in list of keywords """
         for keyword in keywords:
-            current_state = 0
-            j = 0
-            keyword = keyword.lower()
-            child = self.find_next_state(current_state, keyword[j])
-            while child:
-                current_state = child
-                j = j + 1
-                if j < len(keyword):
-                    child = self.find_next_state(current_state, keyword[j])
-                else:
-                    break
-            for i in range(j, len(keyword)):
-                self.add_item(keyword[i])
-                self.items[current_state].add_next_state(len(self.items) - 1)
-                current_state = len(self.items) - 1
-            self.items[current_state].add_output(keyword)
+            self.add_keyword(keyword)
+
+    def add_keyword(self, keyword):
+        current_state = 0
+        j = 0
+        keyword = keyword.lower()
+        child = self.find_next_state(current_state, keyword[j])
+        while child:
+            current_state = child
+            j = j + 1
+            if j < len(keyword):
+                child = self.find_next_state(current_state, keyword[j])
+            else:
+                break
+        for i in range(j, len(keyword)):
+            self.add_item(keyword[i])
+            self.items[current_state].add_next_state(len(self.items) - 1)
+            current_state = len(self.items) - 1
+        self.items[current_state].add_output(keyword)
 
     def set_fail_transitions(self):
         q = deque()
@@ -99,11 +100,8 @@ class Tree:
         return None
 
 
-def get_keywords_found(line, keywords):
+def get_keywords_found(line, tree):
     """ returns true if line contains any keywords in trie """
-    tree = Tree()
-    tree.add_keywords(keywords)
-    line = line.lower()
     current_state = 0
     keywords_found = []
     for i in range(len(line)):
@@ -115,8 +113,74 @@ def get_keywords_found(line, keywords):
             current_state = 0
         else:
             for j in tree.get_item(current_state).get_output():
-                keywords_found.append({"index": i - len(j) + 1, "word": j})
+                keywords_found.append((j, i - len(j) + 1))
     return keywords_found
 
 
-print(get_keywords_found("casheweww", ['cash', 'shew', 'ew']))
+def logger(func):
+    def wrapper(*args, **kwargs):
+        start_time = time.time()
+        res = func(*args, **kwargs)
+        end_time = time.time()
+        run_time = end_time - start_time
+        print(f"Function {func.__name__} completed in {run_time:.9f} seconds.")
+        print(f"Arguments: {args}, {kwargs}.")
+        return res
+    return wrapper
+
+
+@logger
+def search(string, sub_string, case_sensitivity=False, method='first',
+           count=None):
+    """
+    Ищет в наборе строк ключевые слова
+    :param string: строки для поиска
+    :param sub_string: ключевые слова
+    :param case_sensitivity: чувствительность поиска к регистру
+    :param method: метод поиска ('first' или 'last')
+    :param count: искомое число вхождений
+    :return: Индексы найденных в тексте подстрок
+    """
+    tree = Tree()
+    if not case_sensitivity:
+        string = string.lower()
+        if isinstance(sub_string, tuple):
+            sub_string = list(sub_string)
+            for i in range(len(sub_string)):
+                sub_string[i] = sub_string[i].lower()
+            sub_string = tuple(sub_string)
+        else:
+            sub_string = sub_string.lower()
+    if isinstance(sub_string, tuple):
+        tree.add_keywords(sub_string)
+    else:
+        tree.add_keyword(sub_string)
+    items = get_keywords_found(string, tree)
+    if items:
+        if method == 'last':
+            items = items[::-1]
+        if count and len(items) > count:
+            items = items[:count]
+    else:
+        return None
+    if not isinstance(sub_string, tuple):
+        t = []
+        for i in items:
+            t.append(i[1])
+        return tuple(t)
+    else:
+        found = dict()
+        for str in sub_string:
+            found[str] = []
+        for i in items:
+            found[i[0]].append(i[1])
+        for key, value in found.items():
+            if not value:
+                found[key] = None
+            else:
+                found[key] = tuple(value)
+        return found
+
+
+print(search("casheweww", ('cash', 'shew', 'ew')))
+
