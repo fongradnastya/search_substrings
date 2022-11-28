@@ -1,6 +1,6 @@
 import argparse
 import os
-from colorama import init, Back
+from colorama import init, Back, Fore, Style
 from search import search
 from typing import Union
 
@@ -50,7 +50,7 @@ def started_parser() -> int:
     parser = argparse.ArgumentParser(description="collection of parameters")
     parser.add_argument("--str", type=str, help="searching string")
     parser.add_argument("--file", type=str, help="file")
-    parser.add_argument("--substr", type=str, help="substrings for searching")
+    parser.add_argument("--substr", nargs='+', type=str, help="substrings for searching")
     parser.add_argument("--cases", type=bool, help="case sensitive",
                         default=True)
     parser.add_argument("--method", type=str, help="searching method",
@@ -85,10 +85,13 @@ def parse_arguments(args) -> int:
         print("Nothing to search")
         return 1
     else:
+        substr = args.substr
+        if isinstance(args.substr, list):
+            substr = tuple(args.substr)
         case_sensitivity = args.cases if args.cases in (True, False) else True
         method = args.method if args.method in ("first", "last") else "first"
-        count = args.cnt if args.cnt > 0 else None
-        answer = search(args.str, args.substr, case_sensitivity, method, count)
+        count = args.cnt if args.cnt and args.cnt > 0 else None
+        answer = search(args.str, substr, case_sensitivity, method, count)
         print_text(args.str, answer, args.substr)
         return 2
 
@@ -273,14 +276,13 @@ def print_text(string: str, found: Union[tuple, dict, None],
         init()
         color_id = 0
         colors = (
-            Back.BLACK,
-            Back.RED,
-            Back.BLUE,
-            Back.CYAN,
-            Back.GREEN,
-            Back.MAGENTA,
-            Back.YELLOW,
+            Style.BRIGHT + Fore.BLUE + Back.RED,
+            Style.BRIGHT + Fore.CYAN + Back.YELLOW,
+            Style.BRIGHT + Fore.YELLOW + Back.CYAN,
+            Style.BRIGHT + Fore.MAGENTA + Back.GREEN,
+            Style.BRIGHT + Fore.GREEN + Back.MAGENTA,
         )
+        reset = Style.RESET_ALL + Fore.RESET + Back.RESET
         counter = 0
         for i, char in enumerate(string):
             if i in found[counter]:
@@ -293,7 +295,7 @@ def print_text(string: str, found: Union[tuple, dict, None],
                     color_id += 1
                 print(colors[color_id] + char, end="")
             else:
-                print(Back.RESET + char, end="")
+                print(reset + char, end="")
         print(Back.RESET)
 
 
