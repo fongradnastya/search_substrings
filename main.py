@@ -71,15 +71,19 @@ def parse_arguments(args) -> int:
     args_b = bool(args.str) + bool(args.file) + bool(args.substr)
     if not args_b:
         return 0
+    string = ""
     if not (args.str or args.file):
         print("Please, enter strings (--str) or a file name (--file)")
         print("Nowhere to search in")
         return 1
     elif args.file:
         if os.path.exists(args.file):
-            read_from_file(args.file)
+            string = read_from_file(args.file)
         else:
             print("This filename is incorrect")
+            return 1
+    else:
+        string = args.str
     if not args.substr:
         print("Please, enter keywords (--substr)")
         print("Nothing to search")
@@ -91,8 +95,8 @@ def parse_arguments(args) -> int:
         case_sensitivity = args.cases if args.cases in (True, False) else True
         method = args.method if args.method in ("first", "last") else "first"
         count = args.cnt if args.cnt and args.cnt > 0 else None
-        answer = search(args.str, substr, case_sensitivity, method, count)
-        print_text(args.str, answer, args.substr)
+        answer = search(string, substr, case_sensitivity, method, count)
+        print_text(string, answer, args.substr)
         return 2
 
 

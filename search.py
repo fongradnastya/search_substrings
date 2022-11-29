@@ -1,172 +1,156 @@
 import time
-
-from builtins import object
-
-
-class State(object):
-    __slots__ = ['identifier', 'symbol', 'success', 'transitions', 'parent',
-                 'matched_keyword', 'longest_strict_suffix']
-
-    def __init__(self, identifier, symbol=None, parent=None, success=False):
-        self.symbol = symbol
-        self.identifier = identifier
-        self.transitions = {}
-        self.parent = parent
-        self.success = success
-        self.matched_keyword = None
-        self.longest_strict_suffix = None
-
-    def __str__(self):
-        transitions_as_string = ','.join(
-            ['{0} -> {1}'.format(key, value.identifier) for key, value in
-             self.transitions.items()])
-        return "State {0}. Transitions: {1}".format(self.identifier,
-                                                    transitions_as_string)
+from collections import deque
 
 
-class KeywordTree(object):
+class TreeItem:
+    """Элемент префиксного дерева"""
+    def __init__(self, value=None, next_states=None, fail_state=0,
+                 output=None):
+        """
+        Создание экземпляра элемента дерева
+        :param value: значение текущего элемента
+        :param next_states: следующие значения
+        :param fail_state: связи для перехода при отсутствии следующего
+        :param output: ключевые слова, которые можно получить в вершине
+        """
+        self.value = value
+        if not next_states:
+            self.next_states = []
+        else:
+            self.next_states = next_states
+        self.fail_state = fail_state
+        if not output:
+            self.output = []
+        else:
+            self.output = output
 
+
+class Tree:
+    """Префиксное дерево"""
     def __init__(self):
-        '''
-        @param over_allocation: Determines how big initial transition arrays
-                                are and how much space is allocated in addition
-                                to what is essential when array needs to be
-                                resized. Default value 2 seemed to be sweet
-                                spot for memory as well as cpu.
-        '''
-        self._zero_state = State(0)
-        self._counter = 1
-        self._finalized = False
+        """
+        Создание нового префиксного дерева
+        """
+        self._items = []
+        item = TreeItem()
+        self._items.append(item)
 
-    def add(self, keyword):
-        '''
-        Add a keyword to the tree.
-        Can only be used before finalize() has been called.
-        Keyword should be str or unicode.
-        '''
-        if self._finalized:
-            raise ValueError('KeywordTree has been finalized.' +
-                             ' No more keyword additions allowed')
-        original_keyword = keyword
-        if len(keyword) <= 0:
-            return
-        current_state = self._zero_state
-        for char in keyword:
-            try:
-                current_state = current_state.transitions[char]
-            except KeyError:
-                next_state = State(self._counter, parent=current_state,
-                                   symbol=char)
-                self._counter += 1
-                current_state.transitions[char] = next_state
-                current_state = next_state
-        current_state.success = True
-        current_state.matched_keyword = original_keyword
+    def add_item(self, value: object, next_states: list = None,
+                 output: list = None, fail_state: int = 0) -> None:
+        """
+        Добавление нового элемента к дереву
+        :param value: значение текущего элемента
+        :param next_states: следующие значения
+        :param fail_state: связи для перехода при отсутствии следующего
+        :param output: ключевые слова, которые можно получить в вершине
+        """
+        item = TreeItem(value, next_states, fail_state, output)
+        self._items.append(item)
 
-    def finalize(self):
-        '''
-        Needs to be called after all keywords have been added and
-        before any searching is performed.
-        '''
-        if self._finalized:
-            raise ValueError('KeywordTree has already been finalized.')
-        self._zero_state.longest_strict_suffix = self._zero_state
-        self.search_lss_for_children(self._zero_state)
-        self._finalized = True
+    def get_item(self, item_id: int) -> "TreeItem":
+        """
+        Получение элемента очереди по номеру
+        :param item_id: номер искомого элемента
+        :return: элемент префиксного дерева
+        """
+        return self._items[item_id]
 
-    def search_lss_for_children(self, zero_state):
-        processed = set()
-        to_process = [zero_state]
-        while to_process:
-            state = to_process.pop()
-            processed.add(state.identifier)
-            for child in state.transitions.values():
-                if child.identifier not in processed:
-                    self.search_lss(child)
-                    to_process.append(child)
+    def add_keywords(self, keywords: tuple) -> None:
+        """
+        Добавление ключевых слов в дерево
+        :param keywords: кортеж ключевых слов
+        """
+        for keyword in keywords:
+            self.add_keyword(keyword)
 
-    def search_lss(self, state):
-        zero_state = self._zero_state
-        parent = state.parent
-        traversed = parent.longest_strict_suffix
-        while True:
-            if state.symbol in traversed.transitions and \
-                    traversed.transitions[state.symbol] is not state:
-                state.longest_strict_suffix = \
-                    traversed.transitions[state.symbol]
+    def add_keyword(self, keyword: str) -> None:
+        """
+        Добавление одного ключевого слова к дереву
+        :param keyword: ключевое слово
+        :return:
+        """
+        current_state = 0
+        j = 0
+        child = self.find_next_state(current_state, keyword[j])
+        while child:
+            current_state = child
+            j = j + 1
+            if j < len(keyword):
+                child = self.find_next_state(current_state, keyword[j])
+            else:
                 break
-            elif traversed is zero_state:
-                state.longest_strict_suffix = zero_state
-                break
+        for i in range(j, len(keyword)):
+            self.add_item(keyword[i])
+            self._items[current_state].next_states.append(len(self._items) - 1)
+            current_state = len(self._items) - 1
+        self._items[current_state].output.append(keyword)
+
+    def set_fail_transitions(self) -> None:
+        """
+        Установка перехода, используемого в случае отсутствия прямого пути по
+        дереву
+        """
+        q = deque()
+        for node in self._items[0].next_states:
+            q.append(node)
+            self._items[node].fail_state = 0
+        while q:
+            r = q.popleft()
+            for child in self._items[r].next_states:
+                q.append(child)
+                state = self._items[r].fail_state
+                while self.find_next_state(state, self._items[child].value) \
+                        is None and state != 0:
+                    state = self._items[state].fail_state
+                self._items[child].fail_state = \
+                    self.find_next_state(state, self._items[child].value)
+                if self._items[child].fail_state is None:
+                    self._items[child].fail_state = 0
+                id_n = self._items[child].fail_state
+                output = self._items[child].output + self._items[id_n].output
+                self._items[child].output = output
+
+    def find_next_state(self, current_state, value):
+        """
+        Ищет следующий элемент дерева
+        :param current_state: текущий элемент
+        :param value: значение искомого элемента
+        :return:
+        """
+        for node in self._items[current_state].next_states:
+            if self._items[node].value == value:
+                return node
+        return None
+
+    def get_keywords_found(self, line):
+        """
+        Ищет ключевые слова в переданном тексте
+        :param line: текст для поиска подстрок
+        :return: массив найденных ключевых слов и их индексов
+        """
+        current_state = 0
+        keywords_found = []
+        if not line:
+            return None
+        for i in range(len(line)):
+            while self.find_next_state(current_state, line[i]) is None and \
+                    current_state != 0:
+                current_state = self.get_item(current_state).fail_state
+            current_state = self.find_next_state(current_state, line[i])
+            if current_state is None:
+                current_state = 0
             else:
-                traversed = traversed.longest_strict_suffix
-        suffix = state.longest_strict_suffix
-        if suffix is zero_state:
-            return
-        if suffix.longest_strict_suffix is None:
-            self.search_lss(suffix)
-        for symbol, next_state in suffix.transitions.items():
-            if symbol not in state.transitions:
-                state.transitions[symbol] = next_state
-
-    def __str__(self):
-        return "ahocorapy KeywordTree"
-
-    def __getstate__(self):
-        state_list = [None] * self._counter
-        todo_list = [self._zero_state]
-        while todo_list:
-            state = todo_list.pop()
-            transitions = {key: value.identifier for key,
-                                                     value in
-                           state.transitions.items()}
-            state_list[state.identifier] = {
-                'symbol': state.symbol,
-                'success': state.success,
-                'parent': state.parent.identifier if state.parent is not None else None,
-                'matched_keyword': state.matched_keyword,
-                'longest_strict_suffix': state.longest_strict_suffix.identifier if state.longest_strict_suffix is not None else None,
-                'transitions': transitions
-            }
-            for child in state.transitions.values():
-                if len(state_list) <= child.identifier or not \
-                        state_list[child.identifier]:
-                    todo_list.append(child)
-
-        return {
-            'finalized': self._finalized,
-            'counter': self._counter,
-            'states': state_list
-        }
-
-    def __setstate__(self, state):
-        self._counter = state['counter']
-        self._finalized = state['finalized']
-        states = [None] * len(state['states'])
-        for idx, serialized_state in enumerate(state['states']):
-            deserialized_state = State(idx, serialized_state['symbol'])
-            deserialized_state.success = serialized_state['success']
-            deserialized_state.matched_keyword = serialized_state[
-                'matched_keyword']
-            states[idx] = deserialized_state
-        for idx, serialized_state in enumerate(state['states']):
-            deserialized_state = states[idx]
-            if serialized_state['longest_strict_suffix'] is not None:
-                deserialized_state.longest_strict_suffix = states[
-                    serialized_state['longest_strict_suffix']]
-            else:
-                deserialized_state.longest_strict_suffix = None
-            if serialized_state['parent'] is not None:
-                deserialized_state.parent = states[serialized_state['parent']]
-            else:
-                deserialized_state.parent = None
-            deserialized_state.transitions = {
-                key: states[value] for key, value in
-                serialized_state['transitions'].items()}
-        self._zero_state = states[0]
+                for j in self.get_item(current_state).output:
+                    keywords_found.append((j, i - len(j) + 1))
+        return keywords_found
 
 
 def logger(func):
+    """
+    Логирует время рабыты функции и переданные ей аргументы
+    :param func: функция для логирования времени
+    :return:
+    """
     def wrapper(*args, **kwargs):
         start_time = time.time()
         res = func(*args, **kwargs)
@@ -181,7 +165,16 @@ def logger(func):
 @logger
 def search(string, sub_string, case_sensitivity=False, method='first',
            count=None):
-    tree = KeywordTree()
+    """
+    Ищет в наборе строк ключевые слова
+    :param string: строки для поиска
+    :param sub_string: ключевые слова
+    :param case_sensitivity: чувствительность поиска к регистру
+    :param method: метод поиска ('first' или 'last')
+    :param count: искомое число вхождений
+    :return: Индексы найденных в тексте подстрок
+    """
+    tree = Tree()
     if not case_sensitivity:
         string = string.lower()
         if isinstance(sub_string, tuple):
@@ -192,30 +185,11 @@ def search(string, sub_string, case_sensitivity=False, method='first',
         else:
             sub_string = sub_string.lower()
     if isinstance(sub_string, tuple):
-        for item in sub_string:
-            tree.add(item)
+        tree.add_keywords(sub_string)
     else:
-        tree.add(sub_string)
-    tree.finalize()
-    zero_state = tree._zero_state
-    current_state = zero_state
-    found = dict()
-    if isinstance(sub_string, tuple):
-        for item in sub_string:
-            found[item] = []
-    else:
-        found[sub_string] = []
-    items = []
-    for idx, symbol in enumerate(string):
-        current_state = current_state.transitions.get(
-            symbol, zero_state.transitions.get(symbol, zero_state))
-        state = current_state
-        while state is not zero_state:
-            if state.success:
-                keyword = state.matched_keyword
-                idn = idx + 1 - len(keyword)
-                items.append((keyword, idn))
-            state = state.longest_strict_suffix
+        tree.add_keyword(sub_string)
+    tree.set_fail_transitions()
+    items = tree.get_keywords_found(string)
     if items:
         if method == 'last':
             items = items[::-1]
@@ -230,8 +204,8 @@ def search(string, sub_string, case_sensitivity=False, method='first',
         return tuple(t)
     else:
         found = dict()
-        for str in sub_string:
-            found[str] = []
+        for string in sub_string:
+            found[string] = []
         for i in items:
             found[i[0]].append(i[1])
         for key, value in found.items():
