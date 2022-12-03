@@ -51,8 +51,7 @@ def started_parser() -> int:
     parser.add_argument("--str", type=str, help="searching string")
     parser.add_argument("--file", type=str, help="file")
     parser.add_argument("--substr", nargs='+', type=str, help="substrings for searching")
-    parser.add_argument("--cases", type=bool, help="case sensitive",
-                        default=True)
+    parser.add_argument('--cases', action='store_true', help='case sensitive')
     parser.add_argument("--method", type=str, help="searching method",
                         default="first")
     parser.add_argument("--cnt", type=int, help="number of occurrences",
@@ -92,7 +91,7 @@ def parse_arguments(args) -> int:
         substr = args.substr
         if isinstance(args.substr, list):
             substr = tuple(args.substr)
-        case_sensitivity = args.cases if args.cases in (True, False) else True
+        case_sensitivity = args.cases if args.cases in (True, False) else False
         method = args.method if args.method in ("first", "last") else "first"
         count = args.cnt if args.cnt and args.cnt > 0 else None
         answer = search(string, substr, case_sensitivity, method, count)
